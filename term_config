@@ -1,0 +1,38 @@
+# extract files, configure, and compile
+
+local_home=/infrastructure/skbasava/
+
+############
+# libevent #
+############
+tar xvzf libevent-2.0.19-stable.tar.gz
+cd libevent-2.0.19-stable
+./configure --prefix=$local_home/local --disable-shared
+make
+make install
+cd ..
+
+############
+# ncurses  #
+############
+tar xvzf ncurses-5.9.tar.gz
+cd ncurses-5.9
+./configure --prefix=$local_home/local
+make
+make install
+cd ..
+
+############
+# tmux     #
+############
+tar xvzf tmux-${TMUX_VERSION}.tar.gz
+cd tmux-${TMUX_VERSION}
+./configure CFLAGS="-I$local_home/local/include -I$local_home/local/include/ncurses" LDFLAGS="-L$local_home/local/lib -L$local_home/local/include/ncurses -L$local_home/local/include"
+CPPFLAGS="-I$local_home/local/include -I$local_home/local/include/ncurses" LDFLAGS="-static -L$local_home/local/include -L$local_home/local/include/ncurses -L$local_home/local/lib" make
+cp tmux $local_home/local/bin
+cd ..
+
+# cleanup
+rm -rf $local_home/tmux_tmp
+
+echo "$local_home/local/bin/tmux is now available. You can optionally add $local_home/local/bin to your PATH."
