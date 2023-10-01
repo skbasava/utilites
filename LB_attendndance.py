@@ -1,8 +1,8 @@
 import re
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from datetime import datetime
 import calendar
-import datetime
 import math
 import numpy as np
 import pandas as pd
@@ -26,15 +26,42 @@ month_mapping = {
     12: "December"
 }
 
-  
-def flatten_dict(d):
-    flattened_dict = {}
-    for key, value in d.items():
-        if isinstance(value, defaultdict):
-            flattened_dict[key] = flatten_dict(dict(value))
+LBAttendance_records = {}
+class LBAttendance:
+    def __init__(self, name):
+        self.name = name
+        self.attendance = 0  # Initialize attendance as a 32-bit integer with all bits set to 0
+    
+    def getName(self):
+        return self.name
+    
+    def getValue(self):
+        return self.attendance
+
+    def mark_present(self, day):
+        if 1 <= day <= 32:
+            # Shift 1 to the left by (day - 1) positions and use bitwise OR to mark the day as present
+            self.attendance |= 1 << (day - 1)
         else:
-            flattened_dict[key] = value
-    return flattened_dict
+            print("Invalid day, should be between 1 and 32")
+
+    def mark_absent(self, day):
+        if 1 <= day <= 32:
+            # Shift 1 to the left by (day - 1) positions, negate it, and use bitwise AND to mark the day as absent
+            self.attendance &= ~(1 << (day - 1))
+        else:
+            print("Invalid day, should be between 1 and 32")
+
+    def check_attendance(self, day):
+        if 1 <= day <= 32:
+            # Shift 1 to the left by (day - 1) positions and use bitwise AND to check attendance
+            return (self.attendance & (1 << (day - 1))) != 0
+        else:
+            print("Invalid day, should be between 1 and 32")
+
+    def get_attendance_binary(self):
+        # Convert the attendance integer to a 32-character binary string
+        return bin(self.attendance)[2:].zfill(32)
 
 def apply_rounding_based_on_percentage(percentage):
     value = 0.7
@@ -63,107 +90,74 @@ def calculate_value_score(attendance_percentage, fees_paid):
     return "None"
 
 def dataframe_to_excel(dataframe, excel_file, sheet_name='Sheet1', index=False):
-    
     writer = pd.ExcelWriter(excel_file, engine='xlsxwriter')
     dataframe.to_excel(writer, sheet_name=sheet_name, index=index)
-    writer.save()
+    writer.close()
+
+# Function to create or retrieve a LBAttendance object for a LB-member
+def get_or_create_LBAttendance(LBA_member_name):
+    if LBA_member_name not in LBAttendance_records:
+        lb_object = LBAttendance(LBA_member_name)
+        LBAttendance_records[lb_object.getName()] = lb_object
+    return LBAttendance_records[LBA_member_name]
     
 def parse_whatsapp_messages(file_path):
-    tbl_hdr = ["Name", "atten_per"]
-    #attendance = defaultdict(lambda: defaultdict(int))
-    Kannada_pattern = r"ಶುಭೋದಯಗಳು, ಶುಭೋದಯ, ಸುಭೋದಯಗಳು"
-    # Regular expression pattern to search for Kannada strings
-    Kannada_upattern = r"[\u0C80-\u0CFF]+"
-    
-    attendance = defaultdict(int)
-    current_month = None
-
+    #attendance = defaultdict(int)
+    date_format = '%d/%m/%y'
     with open(file_path, 'r', encoding='utf-8') as file:
-        pattern = r'\d{1,2}/(\d{1,2})/\d{2}'
+        date_pattern = r'\d{1,2}/(\d{1,2})/\d{2}'
+        #date_pattern = r'\d{2}/(\d{2})/\d{2}'
         for line in file:
             # Check for new month
-            if re.match(pattern, line):
-                current_month = re.findall(pattern, line)[0]
-                
+            match = re.search(date_pattern, line)
+            if match:
+                dates = match.group()
+                date_obj = datetime.strptime(dates, date_format)  
+                             
             # Check for good morning messages
-            #sender = re.findall(r'\d{2}/\d{1,2}/\d{2}, \d{2}:\d{2} - ([^:]+):', line)
+            #pattern - Android's chat dump.
+            #01/07/23, 05:34 - Bhatta:
+            #android_msg_patter = r'\d{1,2}/\d{1,2}/\d{2}, \d{2}:\d{2} - ([^:]+):', line)
+            #[01/09/23, 5:33:05 AM] DRK: Good morning
+            apple_msg_pattern = r'^\[\d{1,2}\/\d{1,2}\/\d{1,2}, \d{1,2}:\d{1,2}:\d{1,2} [AP]M\] ([^:]+):'
             if re.search(r'good\s+morning|gm|suprabhatam|Suprabhatham|Shubodaya|Shubodhaya|Gud\s+morning|Gud\s+Mrng|Good\s+morning', line, re.IGNORECASE):
-                sender_match = re.match(r'\d{1,2}/\d{1,2}/\d{2}, \d{2}:\d{2} - ([^:]+):', line)
+                sender_match = re.match(apple_msg_pattern, line)
                 if sender_match:
                     sender = sender_match.group(1)
-                    attendance[sender] += 1
-      
-           
-    return attendance, current_month
-
-def plot_attendance(attendance, c_month, my_table):
-    member_names = list(attendance.keys())
-    message_counts = list(attendance.values())
-    
-    # Plot attendance
-    plt.bar(member_names, message_counts)
-    
-    current_month = "Attendance of " + month_mapping[int(c_month)] + " " + str(datetime.datetime.now().year)
-    # Customize plot
-    plt.xlabel('LB Member')
-    plt.ylabel('NoOf Days')
-    plt.title(current_month)
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    
-    # Add text inside the bars
-    for i, value in enumerate(message_counts):
-        plt.text(i, value, str(value), ha='center', va='bottom', fontsize=12, fontweight='bold', color='Orange')
-     
-    plt.bar_label("sat", label_type='center')
-    # Display the plot
-    plt.show()
-    
-def plot_graph(dataframe):
-    # Group the data by the 'Rank' column and count the occurrences of each rank
-    rank_counts = dataframe['Rank'].value_counts()
-
-    # Create a bar plot
-    rank_counts.plot(kind='bar', color='skyblue', edgecolor='black')
-
-    # Set plot labels and title
-    plt.xlabel('Rank')
-    plt.ylabel('Count')
-    plt.title('Rank Distribution')
-
-    # Show the plot
-    plt.tight_layout()
-    plt.show()
+                    la_member = get_or_create_LBAttendance(sender)
+                    la_member.mark_present(date_obj.day)
+                    #attendance[sender] += 1       
+    return date_obj.month
 
 def main():
     # Example usage
     file_path = 'c:\\Users\skbasava\\Downloads\LBA.txt'  # Replace with the path to your WhatsApp chat text file
-    attendance, month = parse_whatsapp_messages(file_path)
+    month = parse_whatsapp_messages(file_path)
         
     # Use monthrange to get the number of days in the month
-    _, num_days = calendar.monthrange(datetime.datetime.now().year, int(month))
+    _, num_days = calendar.monthrange(datetime.now().year, int(month))
     
     
     tbl_hdr = ['Name', 'atten_per', 'fees_paid', 'Rank']
     concat_hdr = ['no_of_days']
     
+    tolist = []
     # Add data rows to the table
-    for key in attendance:
-        atten_percn = calculate_attendance_percentage(attendance[key], num_days)
-        rank = calculate_value_score(atten_percn, 2000)
-        if key in ("Gangu", "Dr Ramesh", "Surianna", "Felix uncle", "PUG uncle"):
-            rank_tbl.append([key, atten_percn, 1000, rank])
-        elif key in ("M.Gowdru", "Revana uncle"):
-            rank_tbl.append([key, atten_percn, 0, "NA"])
-        else:
-            rank_tbl.append([key, atten_percn, 2000, rank])
+    for key, lb_mem in LBAttendance_records.items():
+        binary_string = bin(lb_mem.getValue())
+        attendance = binary_string.count('1')
+        atten_percn = calculate_attendance_percentage(attendance, num_days)
+        rank = calculate_value_score(atten_percn, int(LB_COURT_FEE))
+        rank_tbl.append([key, atten_percn, int(LB_COURT_FEE), rank])
+        tolist.append(attendance)
+    
     # Create a Pandas DataFrame       
     df = pd.DataFrame(rank_tbl, columns=tbl_hdr)
-    values = list(attendance.values())
-    data_df = pd.DataFrame(values, columns=concat_hdr)
+    data_df = pd.DataFrame(tolist, columns=concat_hdr)
     attend_data = pd.concat([df, data_df], axis=1)
+    print(attend_data)
     
-    dataframe_to_excel(attend_data, 'LB_attendenace_result.xlsx', sheet_name='LBA', index=False)
+    dataframe_to_excel(attend_data, 'Sept_LB_attendenace_result.xlsx', sheet_name='LBA', index=False)
    
     
 if __name__ == "__main__":
