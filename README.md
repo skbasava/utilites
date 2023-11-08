@@ -1,6 +1,7 @@
 Team Attendance Tracker
 
-This script parses a chat log (e.g. WhatsApp, Slack etc) to track attendance of team members based on their greeting messages. It generates a summary CSV report of the attendance for the month.
+This script parses a chat log (e.g. WhatsApp, Slack etc) to track attendance of badminton team members based on their greeting messages. 
+It generates a summary CSV report of the attendance for the month.
 Features
 
     Parses whatsapp chat log file and extracts date and member name from each line
