@@ -11,18 +11,20 @@ Features
     Easy to extend with new features like emailing reports, plotting graphs etc
 
 Usage
+
     python LB_attendance.py <chat_logfile>
 
 This will parse the given logfile and generate attendance-<month>.csv summary report in the current directory.
 
 The script accepts the following optional arguments:
-
-  -h, --help            show this help message and exit
-  -f FILE, --file FILE  Path to chat log file
-  -o OUTPUT, --output OUTPUT  
-                        Output report file path
+    
+      -h, --help            show this help message and exit
+      -f FILE, --file FILE  Path to chat log file
+      -o OUTPUT, --output OUTPUT  
+                            Output report file path
 Example:
-   python LB_attendance.py -f chat.txt -o report.csv
+
+    python LB_attendance.py -f chat.txt -o report.csv
 
 Dependencies
 
